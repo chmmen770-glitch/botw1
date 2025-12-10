@@ -82,5 +82,10 @@ def webhook():
 
     return jsonify({"status": "received"}), 200
 
+# --- Route לבדיקה בדפדפן ---
+@app.route('/')
+def home():
+    return "✅ Server is running"
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
