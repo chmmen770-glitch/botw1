@@ -1,30 +1,29 @@
 from flask import Flask, request, jsonify
 import http.client
+import urllib.parse
 import ssl
 
 app = Flask(__name__)
 
-# 🔹 רשימת השאלות
-questions = [
-    {"key": "name", "question": "מה שמך המלא?"},
-    {"key": "date", "question": "באיזה תאריך האירוע?"},
-    {"key": "eventType", "question": "מה סוג האירוע?"},
-    {"key": "location", "question": "מה מקום האירוע?"},
-    {"key": "phone", "question": "מה מספר הטלפון שלך?"}
-]
-
-# 🔹 שמירת session לכל משתמש לפי מספר
-sessions = {}
-
-# 🔹 פרטי UltraMsg שלך
+# UltraMsg instance details
 INSTANCE_ID = "instance155419"
 TOKEN = "3y3jgb9grlw0aa6a"
 
-def send_message(to, body):
+def send_whatsapp_message(to_number, message_text):
+    """
+    פונקציה ששולחת הודעת WhatsApp דרך UltraMsg API
+    """
     conn = http.client.HTTPSConnection("api.ultramsg.com", context=ssl._create_unverified_context())
-    payload = f"token={TOKEN}&to={to}&body={body}"
-    payload = payload.encode('utf8').decode('iso-8859-1')
-    headers = {'content-type': "application/x-www-form-urlencoded"}
+    
+    params = {
+        "token": TOKEN,
+        "to": to_number,
+        "body": message_text
+    }
+    
+    payload = urllib.parse.urlencode(params)
+    headers = { "content-type": "application/x-www-form-urlencoded" }
+    
     conn.request("POST", f"/{INSTANCE_ID}/messages/chat", payload, headers)
     res = conn.getresponse()
     data = res.read()
@@ -32,53 +31,28 @@ def send_message(to, body):
     return data.decode("utf-8")
 
 @app.route("/webhook", methods=["POST"])
-def handle_message():
-    data = request.json
+def webhook():
+    """
+    מקבל הודעות מה‑Webhook של UltraMsg
+    """
+    data = request.get_json()
+    if not data or "message" not in data:
+        return "Invalid request", 400
 
-    # 🔹 UltraMsg שולח פרטי הודעה
-    from_number = data.get("from")
-    message_body = data.get("body", "").strip()
+    msg = data["message"]
+    sender = msg.get("from")
+    body = msg.get("body")
 
-    if not from_number or not message_body:
-        return jsonify({"status": "no data"}), 400
+    if sender and body:
+        # כאן אפשר לשנות את התגובה
+        reply_text = f"שלום! קיבלתי את ההודעה שלך: {body}"
+        send_whatsapp_message(sender, reply_text)
+        return jsonify({"status": "success"}), 200
 
-    # 🔹 בדיקה אם המספר כבר במערכת
-    if from_number not in sessions:
-        # יצירת session חדש
-        sessions[from_number] = {"step": 0, "answers": {}}
-        send_message(from_number, "👋 שלום! רוצה להזמין צלם לאירוע? כתוב 'כן' כדי להתחיל.")
-        return jsonify({"status": "started"}), 200
-
-    session = sessions[from_number]
-    step = session["step"]
-
-    # 🔹 התחלת התהליך
-    if step == 0 and message_body.lower() == "כן":
-        send_message(from_number, questions[0]["question"])
-        session["step"] = 1
-        return jsonify({"status": "question sent"}), 200
-
-    # 🔹 אם כבר בתוך התהליך
-    if 0 < step <= len(questions):
-        # שמירת תשובה קודמת
-        session["answers"][questions[step - 1]["key"]] = message_body
-
-        if step < len(questions):
-            # שליחת השאלה הבאה
-            send_message(from_number, questions[step]["question"])
-            session["step"] += 1
-        else:
-            # סוף התהליך – סיכום ההזמנה
-            summary = "📄 סיכום ההזמנה שלך:\n\n"
-            for q in questions:
-                summary += f"{q['question']} {session['answers'][q['key']]}\n"
-
-            send_message(from_number, summary)
-            # מחיקת session
-            del sessions[from_number]
-
-    return jsonify({"status": "ok"}), 200
+    return "Invalid message format", 400
 
 if __name__ == "__main__":
-    # Flask מתחיל להריץ את השרת
-    app.run(host="0.0.0.0", port=5000)
+    # Render דורש שימוש ב-port מהסביבה
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
