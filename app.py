@@ -1,91 +1,84 @@
 from flask import Flask, request, jsonify
 import http.client
 import ssl
-import urllib.parse
 
 app = Flask(__name__)
 
-# --- CONFIG UltraMsg ---
-TOKEN = "3y3jgb9grlw0aa6a"        # החלף ב‑Token שלך
-INSTANCE_ID = "instance155419"     # החלף ב‑Instance שלך
-API_URL = f"/{INSTANCE_ID}/messages/chat"
-
-# --- שאלות ---
+# 🔹 רשימת השאלות
 questions = [
-    {'key': 'name', 'question': 'מה שמך המלא?'},
-    {'key': 'date', 'question': 'באיזה תאריך האירוע?'},
-    {'key': 'eventType', 'question': 'מה סוג האירוע?'},
-    {'key': 'location', 'question': 'מה מקום האירוע?'},
-    {'key': 'phone', 'question': 'מה מספר הטלפון שלך?'}
+    {"key": "name", "question": "מה שמך המלא?"},
+    {"key": "date", "question": "באיזה תאריך האירוע?"},
+    {"key": "eventType", "question": "מה סוג האירוע?"},
+    {"key": "location", "question": "מה מקום האירוע?"},
+    {"key": "phone", "question": "מה מספר הטלפון שלך?"}
 ]
 
-# --- Sessions לכל משתמש ---
+# 🔹 שמירת session לכל משתמש לפי מספר
 sessions = {}
 
-# --- פונקציה לשליחת הודעה דרך UltraMsg ---
-def send_message(to, text):
+# 🔹 פרטי UltraMsg שלך
+INSTANCE_ID = "instance155419"
+TOKEN = "3y3jgb9grlw0aa6a"
+
+def send_message(to, body):
     conn = http.client.HTTPSConnection("api.ultramsg.com", context=ssl._create_unverified_context())
-    payload = f"token={TOKEN}&to={urllib.parse.quote(to)}&body={urllib.parse.quote(text)}"
+    payload = f"token={TOKEN}&to={to}&body={body}"
+    payload = payload.encode('utf8').decode('iso-8859-1')
     headers = {'content-type': "application/x-www-form-urlencoded"}
-    conn.request("POST", API_URL, payload, headers)
+    conn.request("POST", f"/{INSTANCE_ID}/messages/chat", payload, headers)
     res = conn.getresponse()
     data = res.read()
-    print(f"Sent to {to}: {text}")
-    print(data.decode("utf-8"))
+    conn.close()
+    return data.decode("utf-8")
 
-# --- טיפול בהודעות נכנסות ---
-def handle_message(from_number, text):
-    text = text.strip().lower()
+@app.route("/webhook", methods=["POST"])
+def handle_message():
+    data = request.json
 
+    # 🔹 UltraMsg שולח פרטי הודעה
+    from_number = data.get("from")
+    message_body = data.get("body", "").strip()
+
+    if not from_number or not message_body:
+        return jsonify({"status": "no data"}), 400
+
+    # 🔹 בדיקה אם המספר כבר במערכת
     if from_number not in sessions:
-        sessions[from_number] = {'step': 0, 'answers': {}}
+        # יצירת session חדש
+        sessions[from_number] = {"step": 0, "answers": {}}
         send_message(from_number, "👋 שלום! רוצה להזמין צלם לאירוע? כתוב 'כן' כדי להתחיל.")
-        return
+        return jsonify({"status": "started"}), 200
 
     session = sessions[from_number]
+    step = session["step"]
 
-    if session['step'] == 0:
-        if text == 'כן':
-            send_message(from_number, questions[0]['question'])
-            session['step'] = 1
+    # 🔹 התחלת התהליך
+    if step == 0 and message_body.lower() == "כן":
+        send_message(from_number, questions[0]["question"])
+        session["step"] = 1
+        return jsonify({"status": "question sent"}), 200
+
+    # 🔹 אם כבר בתוך התהליך
+    if 0 < step <= len(questions):
+        # שמירת תשובה קודמת
+        session["answers"][questions[step - 1]["key"]] = message_body
+
+        if step < len(questions):
+            # שליחת השאלה הבאה
+            send_message(from_number, questions[step]["question"])
+            session["step"] += 1
         else:
-            send_message(from_number, "כתוב 'כן' כדי להתחיל את הזמנת הצלם.")
-        return
-
-    if 1 <= session['step'] <= len(questions):
-        q = questions[session['step']-1]
-        session['answers'][q['key']] = text
-
-        if session['step'] < len(questions):
-            send_message(from_number, questions[session['step']]['question'])
-            session['step'] += 1
-        else:
+            # סוף התהליך – סיכום ההזמנה
             summary = "📄 סיכום ההזמנה שלך:\n\n"
             for q in questions:
                 summary += f"{q['question']} {session['answers'][q['key']]}\n"
+
             send_message(from_number, summary)
+            # מחיקת session
             del sessions[from_number]
 
-# --- Webhook Endpoint ---
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.get_json()
-    if not data:
-        return jsonify({"status": "no data"}), 400
+    return jsonify({"status": "ok"}), 200
 
-    # UltraMsg שולח את מספר השולח וההודעה ב‑JSON
-    from_number = data.get('from')
-    message_text = data.get('body')
-
-    if from_number and message_text:
-        handle_message(from_number, message_text)
-
-    return jsonify({"status": "received"}), 200
-
-# --- Route לבדיקה בדפדפן ---
-@app.route('/')
-def home():
-    return "✅ Server is running"
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    # Flask מתחיל להריץ את השרת
+    app.run(host="0.0.0.0", port=5000)
