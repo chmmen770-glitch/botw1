@@ -5,71 +5,59 @@ import ssl
 
 app = Flask(__name__)
 
-# =========================
-# הגדרות UltraMsg
-# =========================
 ULTRAMSG_INSTANCE_ID = "instance155419"
 ULTRAMSG_TOKEN = "3y3jgb9grlw0aa6a"
 
-# =========================
-# נרמול מספר טלפון
-# =========================
 def normalize_phone(phone):
     return ''.join(filter(str.isdigit, phone))
 
-# =========================
-# שליחת הודעה
-# =========================
 def send_whatsapp_message(to, message):
     try:
         to_normalized = normalize_phone(to)
-
         params = {
             "token": ULTRAMSG_TOKEN,
             "to": to_normalized,
             "body": message
         }
         payload = urllib.parse.urlencode(params)
-        
+
         conn = http.client.HTTPSConnection("api.ultramsg.com", context=ssl._create_unverified_context())
-        conn.request("POST", f"/{ULTRAMSG_INSTANCE_ID}/messages/chat", payload, {
-            "content-type": "application/x-www-form-urlencoded"
-        })
+        conn.request("POST", f"/{ULTRAMSG_INSTANCE_ID}/messages/chat", payload,
+                     {"content-type": "application/x-www-form-urlencoded"})
         res = conn.getresponse()
         data = res.read()
         conn.close()
 
-        print("ULTRAMSG RESPONSE:", data.decode("utf-8"))  # <<< לוג חשוב
+        print("SEND RESPONSE:", data.decode("utf-8"))
         return data.decode("utf-8")
-    
+
     except Exception as e:
-        print("Error sending message:", e)
+        print("SEND ERROR:", e)
         return None
 
-# =========================
-# Webhook
-# =========================
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    try:
-        data = request.get_json(force=True, silent=True)
-        
-        print("======================================")
-        print("🚨 RECEIVED WEBHOOK DATA:")
-        print(data)
-        print("======================================")
 
-        if not data:
-            return jsonify({"status": "error", "msg": "no json"}), 400
+    print("======================================")
+    print("🚨 NEW WEBHOOK CALL RECEIVED")
 
-        # כאן אנחנו עדיין לא יודעים מה השדות הנכונים!
-        # נחכה לראות מה מגיע בלוגים.
+    print("\n🔹 request.headers:")
+    print(dict(request.headers))
 
-        return jsonify({"status": "ok"}), 200
+    print("\n🔹 request.form:")
+    print(request.form)
 
-    except Exception as e:
-        print("Webhook error:", e)
-        return jsonify({"status": "error", "message": str(e)}), 500
+    print("\n🔹 request.args:")
+    print(request.args)
+
+    print("\n🔹 request.data (raw body):")
+    print(request.data)
+
+    print("\n🔹 request.json:")
+    print(request.get_json(silent=True))
+    print("======================================\n")
+
+    return jsonify({"status": "ok"}), 200
 
 @app.route("/", methods=["GET"])
 def index():
