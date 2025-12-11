@@ -5,15 +5,20 @@ import ssl
 
 app = Flask(__name__)
 
+# =========================
+# הגדרות חשבון UltraMsg
+# =========================
 ULTRAMSG_INSTANCE_ID = "instance155419"
 ULTRAMSG_TOKEN = "3y3jgb9grlw0aa6a"
+BOT_NUMBER = "13474528352"  # המספר של הבוט שלך, ללא סימנים
 
 # =========================
 # הגדרות / תוכן שניתן לערוך
 # =========================
-BUSINESS_NAME = "[שם העסק שלך]"  # ערוך לשם העסק
+BUSINESS_NAME = "[שם העסק שלך]"
+
 OPENING_HOURS_TEXT = (
-    "שעות פתיחה של " + BUSINESS_NAME + ":\n\n"
+    f"שעות פתיחה של {BUSINESS_NAME}:\n\n"
     "🏬 חנות:\n"
     "  - ב׳–ה׳: 09:00 — 18:00\n"
     "  - ו׳: 09:00 — 14:00\n"
@@ -64,14 +69,12 @@ def send_whatsapp_message(to, message):
 # שמירת מצב השיחה לפי משתמש
 # =========================
 user_states = {}
-# כל state: {"step": <int>, "mode": <str|null>, "answers": {...}}
 
 # =========================
 # זיהוי כוונה פשוט (מספר/מילים)
 # =========================
 def detect_intent(message):
     m = message.strip().lower()
-    # בדיקה אם הקלידו מספר מהתפריט
     if m in ("1", "שעות", "שעות פתיחה", "מתי", "מתי אתם פתוחים", "מתי פתוח"):
         return "opening_hours"
     if m in ("2", "קורסים", "קורסים והשתלמויות", "השתלמויות"):
@@ -82,17 +85,14 @@ def detect_intent(message):
         return "damaged"
     if m in ("5", "אחריות", "תיקונים"):
         return "warranty"
-    # מילים כלליות שעשויות להעיד על שאילתא לשעות
     if any(w in m for w in ["מתי", "שעות", "פתוח"]):
         return "opening_hours"
-    # ברירת מחדל
     return None
 
 # =========================
 # עיבוד הודעה
 # =========================
 def handle_message(sender, message):
-    # אם משתמש חדש - שלח תפריט ראשוני
     if sender not in user_states:
         user_states[sender] = {"step": 0, "mode": None, "answers": {}}
         send_whatsapp_message(sender, MAIN_MENU_TEXT)
@@ -100,8 +100,6 @@ def handle_message(sender, message):
         return
 
     state = user_states[sender]
-    # אם אנחנו באמצע flow מסוים אפשר להרחיב פה
-    # כרגע נתמקד בזיהוי כוונה פשוט ושליחת התשובה המתאימה
     intent = detect_intent(message)
 
     if intent == "opening_hours":
@@ -127,18 +125,16 @@ def handle_message(sender, message):
         return
 
     if intent == "warranty":
-        send_whatsapp_message(sender, "אחריות ותיקונים:\nעל איזה מוצר מדובר ומה הבעיה? בנוסף, כתוב בערך מתי הרכשת את המוצר.")
+        send_whatsapp_message(sender, "אחריות ותיקונים:\nעל איזה מוצר מדובר ומה הבעיה? בנוסף, כתוב בערך מתי רכשת את המוצר.")
         state["mode"] = "warranty"
         return
 
-    # אם משתמש כתב "כן" אחרי השאלה לחזור לתפריט
     if message.strip().lower() in ("כן", "כן בבקשה", "חזור", "חזרה", "menu"):
         send_whatsapp_message(sender, MAIN_MENU_TEXT)
         state["mode"] = None
         state["step"] = 1
         return
 
-    # אם אנחנו במצב ספציפי (mode) ניתן לטפל בפירוט
     if state.get("mode") == "orders":
         digits = ''.join(filter(str.isdigit, message))
         if digits:
@@ -177,7 +173,6 @@ def handle_message(sender, message):
         state["mode"] = None
         return
 
-    # ברירת מחדל
     send_whatsapp_message(sender, "אני לא בטוח שהבנתי — הנה התפריט הראשי שוב:")
     send_whatsapp_message(sender, MAIN_MENU_TEXT)
     state["mode"] = None
@@ -185,7 +180,7 @@ def handle_message(sender, message):
     return
 
 # =========================
-# Webhook UltraMsg - גרסה מתוקנת
+# Webhook UltraMsg
 # =========================
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -197,12 +192,12 @@ def webhook():
     message = data["data"]["body"]
 
     # ======= סינון הודעות שהבוט עצמו שלח =======
-    if ULTRAMSG_INSTANCE_ID in sender:
+    if BOT_NUMBER in sender:
+        print("Ignored message from bot itself.")
         return jsonify({"status": "ignored"}), 200
     # ===========================================
 
     print(f"Incoming from {sender}: {message}")
-
     handle_message(sender, message)
 
     return jsonify({"status": "ok"}), 200
