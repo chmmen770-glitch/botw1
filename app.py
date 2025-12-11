@@ -23,6 +23,12 @@ CEND = "\033[0m"
 
 
 # ===================
+# מצבי שיחה
+# ===================
+user_states = {}  # לכל משתמש נשמור איפה הוא נמצא בשיחה
+
+
+# ===================
 # ניקוי מספרים
 # ===================
 def extract_numbers(text):
@@ -50,15 +56,39 @@ def send_message(to, message):
 
 
 # ===================
-# לוגיקה של הבוט
+# לוגיקה של שיחה
 # ===================
 def handle_message(sender, text):
-    text = text.lower().strip()
+    text_clean = text.lower().strip()
 
-    # בדיקה אם המשתמש שולח משהו
-    print(CGREEN + f"[HANDLE_MESSAGE] הודעה מ-{sender}: {text}" + CEND)
+    print(CGREEN + f"[HANDLE_MESSAGE] הודעה מ-{sender}: {text_clean}" + CEND)
 
-    send_message(sender, f"Received: {text}")
+    # אם המשתמש חדש – מתחילים איתו שיחה
+    if sender not in user_states:
+        user_states[sender] = {"stage": "start"}
+        send_message(sender, "שלום! מה אתה רוצה בדיוק?")
+        return
+
+    stage = user_states[sender]["stage"]
+
+    # ---------- שלב 1: משתמש אמר שלום ----------
+    if stage == "start":
+        if "להזמין" in text_clean:
+            user_states[sender]["stage"] = "order_what"
+            send_message(sender, "להזמין מה?")
+        else:
+            send_message(sender, "לא כל כך הבנתי... אתה רוצה להזמין משהו?")
+        return
+
+    # ---------- שלב 2: להזמין מה? ----------
+    if stage == "order_what":
+        item = text
+        user_states[sender]["stage"] = "done"
+        send_message(sender, f"הבנתי! אתה רוצה להזמין {item}.")
+        return
+
+    # ---------- שלב אחרון / לא ידוע ----------
+    send_message(sender, "איך אפשר לעזור?")
 
 
 # ===================
@@ -93,23 +123,17 @@ def webhook():
     print(CYELLOW + f"[SENDER NORMALIZED] {sender_digits}" + CEND)
     print(CYELLOW + f"[BOT NORMALIZED] {bot_digits}\n" + CEND)
 
-    # ==========================
-    # שלב 1 – הודעה של הבוט עצמו לפי fromMe
-    # ==========================
+    # ===== שלב 1 – הבוט לא מגיב לעצמו =====
     if from_me is True:
         print(CRED + "[IGNORED] fromMe=True → זו הודעה של הבוט לעצמו" + CEND)
         return jsonify({"ignored": "from_me"}), 200
 
-    # ==========================
-    # שלב 2 – בדיקה לפי מספר
-    # ==========================
+    # ===== שלב 2 – אם המספר זה הבוט =====
     if sender_digits == bot_digits:
-        print(CRED + "[IGNORED] המספר זהה למספר הבוט → הבוט שולח לעצמו" + CEND)
+        print(CRED + "[IGNORED] המספר זהה למספר הבוט → מתעלם" + CEND)
         return jsonify({"ignored": "self_number"}), 200
 
-    # ==========================
-    # שלב 3 – אם עברנו את כל הבדיקות, זו באמת הודעה של משתמש
-    # ==========================
+    # ===== שלב 3 – משתמש אמיתי =====
     print(CGREEN + "[VALID MESSAGE] זהו משתמש אמיתי → מעבד תשובה" + CEND)
 
     handle_message(sender_digits, text)
