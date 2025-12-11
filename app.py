@@ -10,15 +10,14 @@ app = Flask(__name__)
 # =========================
 ULTRAMSG_INSTANCE_ID = "instance155419"
 ULTRAMSG_TOKEN = "3y3jgb9grlw0aa6a"
-BOT_NUMBER = "13474528352"  # המספר של הבוט שלך, ללא סימנים
+BOT_NUMBER = "13474528352"  # כאן הכנס את מספר הבוט שלך (כולל קידומת מדינה, רק ספרות)
 
 # =========================
 # הגדרות / תוכן שניתן לערוך
 # =========================
-BUSINESS_NAME = "[שם העסק שלך]"
-
+BUSINESS_NAME = "[שם העסק שלך]"  # ערוך לשם העסק
 OPENING_HOURS_TEXT = (
-    f"שעות פתיחה של {BUSINESS_NAME}:\n\n"
+    "שעות פתיחה של " + BUSINESS_NAME + ":\n\n"
     "🏬 חנות:\n"
     "  - ב׳–ה׳: 09:00 — 18:00\n"
     "  - ו׳: 09:00 — 14:00\n"
@@ -42,9 +41,11 @@ MAIN_MENU_TEXT = (
 # פונקציות עזר
 # =========================
 def normalize_phone(phone):
-    return ''.join(filter(str.isdigit, phone))
+    """שומר רק ספרות ממספר טלפון"""
+    return ''.join(filter(str.isdigit, str(phone)))
 
 def send_whatsapp_message(to, message):
+    """שולח הודעה דרך UltraMsg"""
     try:
         to_normalized = normalize_phone(to)
         params = {
@@ -71,7 +72,7 @@ def send_whatsapp_message(to, message):
 user_states = {}
 
 # =========================
-# זיהוי כוונה פשוט (מספר/מילים)
+# זיהוי כוונה פשוט
 # =========================
 def detect_intent(message):
     m = message.strip().lower()
@@ -125,7 +126,7 @@ def handle_message(sender, message):
         return
 
     if intent == "warranty":
-        send_whatsapp_message(sender, "אחריות ותיקונים:\nעל איזה מוצר מדובר ומה הבעיה? בנוסף, כתוב בערך מתי רכשת את המוצר.")
+        send_whatsapp_message(sender, "אחריות ותיקונים:\nעל איזה מוצר מדובר ומה הבעיה? בנוסף, כתוב בערך מתי הרכשת את המוצר.")
         state["mode"] = "warranty"
         return
 
@@ -135,6 +136,7 @@ def handle_message(sender, message):
         state["step"] = 1
         return
 
+    # מצבים לפי mode
     if state.get("mode") == "orders":
         digits = ''.join(filter(str.isdigit, message))
         if digits:
@@ -147,7 +149,7 @@ def handle_message(sender, message):
             return
 
     if state.get("mode") == "courses":
-        if "דיגיטל" in message or "דיגיטליים" in message:
+        if "דיגיטל" in message:
             send_whatsapp_message(sender, "קורסים דיגיטליים:\n1) קורס בסיסי\n2) קורס מתקדם\nרוצה שנרשום אותך או לשלוח פרטים נוספים? שלח שם ומספר.")
             state["mode"] = None
             return
@@ -173,14 +175,20 @@ def handle_message(sender, message):
         state["mode"] = None
         return
 
+    # ברירת מחדל
     send_whatsapp_message(sender, "אני לא בטוח שהבנתי — הנה התפריט הראשי שוב:")
     send_whatsapp_message(sender, MAIN_MENU_TEXT)
     state["mode"] = None
     state["step"] = 1
-    return
 
 # =========================
-# Webhook UltraMsg
+# פונקציות עזר נוספות
+# =========================
+def extract_numbers(text):
+    return ''.join(filter(str.isdigit, str(text)))
+
+# =========================
+# Webhook UltraMsg - גרסה מתוקנת
 # =========================
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -188,18 +196,25 @@ def webhook():
     if not data or "data" not in data:
         return jsonify({"status": "error", "message": "No valid JSON received"}), 400
 
-    sender = data["data"]["from"]
-    message = data["data"]["body"]
+    raw_sender = data["data"]["from"]
+    message_body = data["data"]["body"]
 
-    # ======= סינון הודעות שהבוט עצמו שלח =======
-    if BOT_NUMBER in sender:
-        print("Ignored message from bot itself.")
-        return jsonify({"status": "ignored"}), 200
-    # ===========================================
+    # בדיקה אם ההודעה נשלחה על ידי הבוט עצמו
+    is_from_me = data["data"].get("fromMe", False)
+    if is_from_me:
+        print(f"Skipping message (fromMe=True): {message_body}")
+        return jsonify({"status": "ignored_me"}), 200
 
-    print(f"Incoming from {sender}: {message}")
-    handle_message(sender, message)
+    sender_digits = extract_numbers(raw_sender)
+    bot_digits = extract_numbers(BOT_NUMBER)
 
+    if sender_digits == bot_digits:
+        print(f"Ignored message from bot itself (Phone Match).")
+        return jsonify({"status": "ignored_self"}), 200
+
+    print(f"Incoming from {sender_digits}: {message_body}")
+
+    handle_message(sender_digits, message_body)
     return jsonify({"status": "ok"}), 200
 
 # =========================
