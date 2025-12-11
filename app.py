@@ -105,16 +105,13 @@ def handle_message(sender, message):
     intent = detect_intent(message)
 
     if intent == "opening_hours":
-        # שלח טקסט שעות פתיחה (לשון זכר מותאמת)
         send_whatsapp_message(sender, OPENING_HOURS_TEXT)
-        # נשאל אם צריך עוד משהו ונדאג להחזיר לתפריט
         send_whatsapp_message(sender, "רוצה לחזור לתפריט הראשי? (כן/לא)")
         state["mode"] = None
         state["step"] = 1
         return
 
     if intent == "courses":
-        # תשובת דוגמא ראשונית - אפשר להרחיב ל־flow הרשמה
         send_whatsapp_message(sender, "קורסים והשתלמויות:\nיש לנו קורסים דיגיטליים ופרונטליים. רוצה לקבל פירוט? כתוב 'דיגיטליים' או 'פרונטליים'.")
         state["mode"] = "courses"
         return
@@ -143,11 +140,8 @@ def handle_message(sender, message):
 
     # אם אנחנו במצב ספציפי (mode) ניתן לטפל בפירוט
     if state.get("mode") == "orders":
-        # לדוגמה: אם המשתמש שלח מספר הזמנה (מספר בלבד)
         digits = ''.join(filter(str.isdigit, message))
         if digits:
-            # כאן אפשר לקרוא ל־API של המערכת שלך כדי לבדוק סטטוס
-            # כעת נחזיר תשובת דמה למצבי בדיקה
             send_whatsapp_message(sender, f"בדקתי את מספר ההזמנה {digits} — סטטוס: במשלוח. צפוי להגעה בעוד 2 ימי עסקים.")
             send_whatsapp_message(sender, "האם תרצה עוד עזרה? (חזור לתפריט / סיום)")
             state["mode"] = None
@@ -156,7 +150,6 @@ def handle_message(sender, message):
             send_whatsapp_message(sender, "לא זיהיתי מספר הזמנה. שלח בבקשה את מספר ההזמנה (רק ספרות).")
             return
 
-    # מצבים נוספים אפשריים (courses, damaged, warranty) — תשובות בסיסיות
     if state.get("mode") == "courses":
         if "דיגיטל" in message or "דיגיטליים" in message:
             send_whatsapp_message(sender, "קורסים דיגיטליים:\n1) קורס בסיסי\n2) קורס מתקדם\nרוצה שנרשום אותך או לשלוח פרטים נוספים? שלח שם ומספר.")
@@ -166,16 +159,13 @@ def handle_message(sender, message):
             send_whatsapp_message(sender, "קורסים פרונטליים:\nהתאריכים הקרובים: 10.01.2026, 24.01.2026\nלרישום שלח שם ומספר.")
             state["mode"] = None
             return
-        # אחרת תשובה כללית
         send_whatsapp_message(sender, "מה סוג הקורס שמעניין אותך? (דיגיטליים / פרונטליים)")
         return
 
     if state.get("mode") == "damaged":
-        # לצורך דוגמה — אם שלחו מספר הזמנה
         digits = ''.join(filter(str.isdigit, message))
         if digits:
             send_whatsapp_message(sender, "תודה. שלחת מספר הזמנה. עכשיו אנא שלח תיאור קצר של הפגם ואם אפשר - תמונה.")
-            # נשמור את מספר ההזמנה
             state["answers"]["order_number"] = digits
             return
         else:
@@ -187,7 +177,7 @@ def handle_message(sender, message):
         state["mode"] = None
         return
 
-    # ברירת מחדל - אם לא זיהינו כוונה
+    # ברירת מחדל
     send_whatsapp_message(sender, "אני לא בטוח שהבנתי — הנה התפריט הראשי שוב:")
     send_whatsapp_message(sender, MAIN_MENU_TEXT)
     state["mode"] = None
@@ -195,7 +185,7 @@ def handle_message(sender, message):
     return
 
 # =========================
-# Webhook UltraMsg
+# Webhook UltraMsg - גרסה מתוקנת
 # =========================
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -205,6 +195,12 @@ def webhook():
 
     sender = data["data"]["from"]
     message = data["data"]["body"]
+
+    # ======= סינון הודעות שהבוט עצמו שלח =======
+    if ULTRAMSG_INSTANCE_ID in sender:
+        return jsonify({"status": "ignored"}), 200
+    # ===========================================
+
     print(f"Incoming from {sender}: {message}")
 
     handle_message(sender, message)
