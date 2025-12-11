@@ -9,6 +9,31 @@ ULTRAMSG_INSTANCE_ID = "instance155419"
 ULTRAMSG_TOKEN = "3y3jgb9grlw0aa6a"
 
 # =========================
+# הגדרות / תוכן שניתן לערוך
+# =========================
+BUSINESS_NAME = "[שם העסק שלך]"  # ערוך לשם העסק
+OPENING_HOURS_TEXT = (
+    "שעות פתיחה של " + BUSINESS_NAME + ":\n\n"
+    "🏬 חנות:\n"
+    "  - ב׳–ה׳: 09:00 — 18:00\n"
+    "  - ו׳: 09:00 — 14:00\n"
+    "  - שבת: סגור\n\n"
+    "☎️ טלפון לחנות: 03-xxxxxxx\n\n"
+    "האם תרצה לדעת משהו נוסף? (הקלד מספר מהתפריט או כתב שאלתך)"
+)
+
+MAIN_MENU_TEXT = (
+    f"שלום! ברוך הבא ל־{BUSINESS_NAME} 👋\n\n"
+    "על מה תרצה לשאול?\n\n"
+    "1. 🕒 שעות פתיחה\n"
+    "2. 🎓 קורסים והשתלמויות\n"
+    "3. 📦 הזמנות ומשלוחים\n"
+    "4. 💔 קיבלתי הזמנה פגומה\n"
+    "5. 🛠️ אחריות ותיקונים\n\n"
+    "ענה במספר המתאים או כתוב בקצרה מה תרצה לבדוק."
+)
+
+# =========================
 # פונקציות עזר
 # =========================
 def normalize_phone(phone):
@@ -39,19 +64,135 @@ def send_whatsapp_message(to, message):
 # שמירת מצב השיחה לפי משתמש
 # =========================
 user_states = {}
+# כל state: {"step": <int>, "mode": <str|null>, "answers": {...}}
 
 # =========================
-# סדרת שאלות להזמנה
+# זיהוי כוונה פשוט (מספר/מילים)
 # =========================
-questions = [
-    "שלום! לאיזה סוג אירוע תרצה להזמין צלם? (חתונה, בר/בת מצווה, אירוע פרטי, אחר)",
-    "תודה! מה תאריך האירוע? (יום/חודש/שנה)",
-    "איפה יתקיים האירוע? כתובת מלאה או עיר",
-    "כמה שעות היית רוצה שהצילום ימשך?",
-    "איזה סגנון צילום מעניין אותך? (סטילס, וידאו, שניהם, אחר)",
-    "נשמח לקבל שם ומספר טלפון ליצירת קשר",
-    "האם יש משהו נוסף שחשוב לנו לדעת? (למשל רעיונות מיוחדים או בקשות מיוחדות)"
-]
+def detect_intent(message):
+    m = message.strip().lower()
+    # בדיקה אם הקלידו מספר מהתפריט
+    if m in ("1", "שעות", "שעות פתיחה", "מתי", "מתי אתם פתוחים", "מתי פתוח"):
+        return "opening_hours"
+    if m in ("2", "קורסים", "קורסים והשתלמויות", "השתלמויות"):
+        return "courses"
+    if m in ("3", "הזמנות", "משלוחים", "מעקב"):
+        return "orders"
+    if m in ("4", "פגומה", "הזמנה פגומה", "קיבלתי פגומה"):
+        return "damaged"
+    if m in ("5", "אחריות", "תיקונים"):
+        return "warranty"
+    # מילים כלליות שעשויות להעיד על שאילתא לשעות
+    if any(w in m for w in ["מתי", "שעות", "פתוח"]):
+        return "opening_hours"
+    # ברירת מחדל
+    return None
+
+# =========================
+# עיבוד הודעה
+# =========================
+def handle_message(sender, message):
+    # אם משתמש חדש - שלח תפריט ראשוני
+    if sender not in user_states:
+        user_states[sender] = {"step": 0, "mode": None, "answers": {}}
+        send_whatsapp_message(sender, MAIN_MENU_TEXT)
+        user_states[sender]["step"] = 1
+        return
+
+    state = user_states[sender]
+    # אם אנחנו באמצע flow מסוים אפשר להרחיב פה
+    # כרגע נתמקד בזיהוי כוונה פשוט ושליחת התשובה המתאימה
+    intent = detect_intent(message)
+
+    if intent == "opening_hours":
+        # שלח טקסט שעות פתיחה (לשון זכר מותאמת)
+        send_whatsapp_message(sender, OPENING_HOURS_TEXT)
+        # נשאל אם צריך עוד משהו ונדאג להחזיר לתפריט
+        send_whatsapp_message(sender, "רוצה לחזור לתפריט הראשי? (כן/לא)")
+        state["mode"] = None
+        state["step"] = 1
+        return
+
+    if intent == "courses":
+        # תשובת דוגמא ראשונית - אפשר להרחיב ל־flow הרשמה
+        send_whatsapp_message(sender, "קורסים והשתלמויות:\nיש לנו קורסים דיגיטליים ופרונטליים. רוצה לקבל פירוט? כתוב 'דיגיטליים' או 'פרונטליים'.")
+        state["mode"] = "courses"
+        return
+
+    if intent == "orders":
+        send_whatsapp_message(sender, "הזמנות ומשלוחים:\nלבדיקת מצב הזמנה אנא שלח מספר הזמנה או כתוב 'מעקב'.")
+        state["mode"] = "orders"
+        return
+
+    if intent == "damaged":
+        send_whatsapp_message(sender, "קיבלתי הזמנה פגומה:\nבבקשה שלח את מספר ההזמנה, תיאור התקלה ואם אפשר — תמונה של המוצר.")
+        state["mode"] = "damaged"
+        return
+
+    if intent == "warranty":
+        send_whatsapp_message(sender, "אחריות ותיקונים:\nעל איזה מוצר מדובר ומה הבעיה? בנוסף, כתוב בערך מתי הרכשת את המוצר.")
+        state["mode"] = "warranty"
+        return
+
+    # אם משתמש כתב "כן" אחרי השאלה לחזור לתפריט
+    if message.strip().lower() in ("כן", "כן בבקשה", "חזור", "חזרה", "menu"):
+        send_whatsapp_message(sender, MAIN_MENU_TEXT)
+        state["mode"] = None
+        state["step"] = 1
+        return
+
+    # אם אנחנו במצב ספציפי (mode) ניתן לטפל בפירוט
+    if state.get("mode") == "orders":
+        # לדוגמה: אם המשתמש שלח מספר הזמנה (מספר בלבד)
+        digits = ''.join(filter(str.isdigit, message))
+        if digits:
+            # כאן אפשר לקרוא ל־API של המערכת שלך כדי לבדוק סטטוס
+            # כעת נחזיר תשובת דמה למצבי בדיקה
+            send_whatsapp_message(sender, f"בדקתי את מספר ההזמנה {digits} — סטטוס: במשלוח. צפוי להגעה בעוד 2 ימי עסקים.")
+            send_whatsapp_message(sender, "האם תרצה עוד עזרה? (חזור לתפריט / סיום)")
+            state["mode"] = None
+            return
+        else:
+            send_whatsapp_message(sender, "לא זיהיתי מספר הזמנה. שלח בבקשה את מספר ההזמנה (רק ספרות).")
+            return
+
+    # מצבים נוספים אפשריים (courses, damaged, warranty) — תשובות בסיסיות
+    if state.get("mode") == "courses":
+        if "דיגיטל" in message or "דיגיטליים" in message:
+            send_whatsapp_message(sender, "קורסים דיגיטליים:\n1) קורס בסיסי\n2) קורס מתקדם\nרוצה שנרשום אותך או לשלוח פרטים נוספים? שלח שם ומספר.")
+            state["mode"] = None
+            return
+        if "פרונט" in message:
+            send_whatsapp_message(sender, "קורסים פרונטליים:\nהתאריכים הקרובים: 10.01.2026, 24.01.2026\nלרישום שלח שם ומספר.")
+            state["mode"] = None
+            return
+        # אחרת תשובה כללית
+        send_whatsapp_message(sender, "מה סוג הקורס שמעניין אותך? (דיגיטליים / פרונטליים)")
+        return
+
+    if state.get("mode") == "damaged":
+        # לצורך דוגמה — אם שלחו מספר הזמנה
+        digits = ''.join(filter(str.isdigit, message))
+        if digits:
+            send_whatsapp_message(sender, "תודה. שלחת מספר הזמנה. עכשיו אנא שלח תיאור קצר של הפגם ואם אפשר - תמונה.")
+            # נשמור את מספר ההזמנה
+            state["answers"]["order_number"] = digits
+            return
+        else:
+            send_whatsapp_message(sender, "לא זיהיתי מספר הזמנה. שלח בבקשה את מספר ההזמנה (רק ספרות).")
+            return
+
+    if state.get("mode") == "warranty":
+        send_whatsapp_message(sender, "קיבלתי את פרטיך. נשלח לנציג לבדיקה ונחזור אליך בהקדם. האם תרצה לחזור לתפריט הראשי? (כן/לא)")
+        state["mode"] = None
+        return
+
+    # ברירת מחדל - אם לא זיהינו כוונה
+    send_whatsapp_message(sender, "אני לא בטוח שהבנתי — הנה התפריט הראשי שוב:")
+    send_whatsapp_message(sender, MAIN_MENU_TEXT)
+    state["mode"] = None
+    state["step"] = 1
+    return
 
 # =========================
 # Webhook UltraMsg
@@ -64,34 +205,9 @@ def webhook():
 
     sender = data["data"]["from"]
     message = data["data"]["body"]
+    print(f"Incoming from {sender}: {message}")
 
-    if sender not in user_states:
-        # התחלת שיחה חדשה
-        user_states[sender] = {"step": 0, "answers": {}}
-        send_whatsapp_message(sender, questions[0])
-        user_states[sender]["step"] = 1
-        return jsonify({"status": "ok"}), 200
-
-    state = user_states[sender]
-    step = state["step"]
-
-    # שמירת תשובה מהמשתמש
-    if step > 0 and step <= len(questions):
-        key = f"q{step}"
-        state["answers"][key] = message
-
-        if step == len(questions):
-            # סיום סדרת השאלות
-            summary = "תודה על המידע! הנה הסיכום של הזמנתך:\n\n"
-            for i, ans in enumerate(state["answers"].values(), 1):
-                summary += f"{i}. {ans}\n"
-            send_whatsapp_message(sender, summary)
-            # מחיקת מצב המשתמש או אפשר להשאיר
-            user_states.pop(sender)
-        else:
-            # שליחת השאלה הבאה
-            send_whatsapp_message(sender, questions[step])
-            state["step"] += 1
+    handle_message(sender, message)
 
     return jsonify({"status": "ok"}), 200
 
