@@ -189,18 +189,27 @@ def handle_message(sender, text, media_link=""):
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json(silent=True)
+
+    if not data or "data" not in data:
+        return jsonify({"status": "error"}), 400
+
     d = data["data"]
 
     sender = extract_numbers(d.get("from", ""))
     text = d.get("body", "")
-    media = d.get("media", {})
-    media_link = media.get("link", "")
+    from_me = d.get("fromMe", False)
 
-    if d.get("fromMe"):
-        return jsonify({"ignored": True})
+    # טיפול נכון במדיה
+    media = d.get("media", None)
+    media_link = ""
+    if isinstance(media, dict):
+        media_link = media.get("link", "")
+
+    if from_me:
+        return jsonify({"ignored": True}), 200
 
     handle_message(sender, text, media_link)
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "ok"}), 200
 
 @app.route("/")
 def home():
@@ -208,3 +217,4 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
