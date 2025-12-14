@@ -7,6 +7,8 @@ app = Flask(__name__)
 # CONFIG
 # ================
 BOT_NUMBER = "13474528352"
+ADMIN_NUMBER = "13474528352"
+
 ULTRAMSG_INSTANCE = "instance155419"
 ULTRAMSG_TOKEN = "3y3jgb9grlw0aa6a"
 
@@ -34,7 +36,7 @@ def extract_numbers(text):
 # שליחת הודעה
 # ===================
 def send_message(to, message):
-    print(CBLUE + f"[SEND_MESSAGE] שולח ל-{to}: {message}" + CEND)
+    print(CBLUE + f"[SEND_MESSAGE] אל {to}: {message}" + CEND)
 
     url = f"https://api.ultramsg.com/{ULTRAMSG_INSTANCE}/messages/chat"
     payload = {
@@ -44,8 +46,7 @@ def send_message(to, message):
     }
 
     try:
-        r = requests.post(url, data=payload, timeout=10)
-        print(CBLUE + f"[SEND_MESSAGE_RESPONSE] {r.text}" + CEND)
+        requests.post(url, data=payload, timeout=10)
     except Exception as e:
         print(CRED + f"[SEND_MESSAGE_ERROR] {e}" + CEND)
 
@@ -63,16 +64,16 @@ def send_main_menu(sender):
         "3️⃣ 📦 הזמנות ומשלוחים\n"
         "4️⃣ 💔 קיבלתי הזמנה פגומה\n"
         "5️⃣ 🛠️ אחריות ותיקונים\n\n"
-        "שלחי מספר / שם נושא\n"
-        "או כתבי *תפריט* בכל שלב לחזרה 💕"
+        "שלחי מספר או שם נושא\n"
+        "או כתבי *תפריט* בכל שלב 💕"
     )
 
 # ===================
 # לוגיקה של שיחה
 # ===================
-def handle_message(sender, text):
+def handle_message(sender, text, media_link=""):
     text_clean = text.lower().strip()
-    print(CGREEN + f"[HANDLE_MESSAGE] מ-{sender}: {text_clean}" + CEND)
+    print(CGREEN + f"[HANDLE_MESSAGE] {sender}: {text_clean}" + CEND)
 
     if sender not in user_states:
         user_states[sender] = {"stage": "menu"}
@@ -94,24 +95,24 @@ def handle_message(sender, text):
             user_states[sender]["stage"] = "opening_hours"
             send_message(
                 sender,
-                "🕒 *שעות פתיחה*\n"
-                "ימים א׳–ה׳: 09:00–18:00\n"
-                "יום ו׳: 09:00–13:00\n\n"
-                "☎️ טלפון: 050-0000000\n\n"
-                "לכל דבר נוסף – כתבי *תפריט* 💕"
+                "🕒 שעות פתיחה:\n"
+                "א׳–ה׳ 09:00–18:00\n"
+                "ו׳ 09:00–13:00\n\n"
+                "☎️ 050-0000000\n\n"
+                "*תפריט* לחזרה 💕"
             )
 
         elif text_clean in ["2", "קורסים", "קורסים והשתלמויות"]:
-            user_states[sender]["stage"] = "courses_type"
+            user_states[sender]["stage"] = "courses"
             send_message(
                 sender,
                 "איזה סוג קורס מעניין אותך?\n"
                 "💻 קורסים דיגיטליים\n"
                 "🏫 קורסים פרונטליים\n\n"
-                "או *תפריט* לחזרה 🌸"
+                "*תפריט* לחזרה"
             )
 
-        elif text_clean in ["3", "הזמנות", "משלוחים"]:
+        elif text_clean in ["3", "הזמנות", "משלוחים", "הזמנות ומשלוחים"]:
             user_states[sender]["stage"] = "orders_menu"
             send_message(
                 sender,
@@ -119,20 +120,20 @@ def handle_message(sender, text):
                 "על מה תרצי לשאול?\n"
                 "🚚 זמני משלוח ועלויות\n"
                 "📦 מעקב אחרי הזמנה\n\n"
-                "או *תפריט* לחזרה"
+                "*תפריט* לחזרה"
             )
 
-        elif text_clean in ["4", "הזמנה פגומה", "פגומה"]:
+        elif text_clean in ["4", "פגומה", "הזמנה פגומה"]:
             user_states[sender]["stage"] = "damaged_order"
             send_message(
                 sender,
                 "מצטערות לשמוע שזה קרה 🥺\n\n"
-                "כדי שנוכל לעזור, אנא שלחי:\n"
+                "אנא שלחי:\n"
                 "• שם מלא\n"
                 "• מספר הזמנה (אם יש)\n"
                 "• תיאור התקלה\n"
-                "• ואם אפשר – תמונה של המוצר\n\n"
-                "או *תפריט* לחזרה 💛"
+                "• ואם אפשר – תמונה\n\n"
+                "*תפריט* לחזרה 💛"
             )
 
         elif text_clean in ["5", "אחריות", "תיקונים"]:
@@ -141,48 +142,93 @@ def handle_message(sender, text):
                 sender,
                 "🛠️ אחריות ותיקונים\n"
                 "אנא שלחי:\n"
-                "• על איזה מוצר מדובר\n"
-                "• מתי נרכש (בערך)\n"
+                "• מוצר\n"
+                "• מועד רכישה (בערך)\n"
                 "• מה הבעיה\n\n"
-                "או *תפריט* לחזרה 🌸"
+                "*תפריט* לחזרה 🌸"
             )
 
         else:
             send_main_menu(sender)
 
-    # ===== קורסים =====
-    elif stage == "courses_type":
+    # ===== הזמנות =====
+    elif stage == "orders_menu":
 
-        if "דיגיטל" in text_clean:
-            user_states[sender]["stage"] = "menu"
+        if "זמני" in text_clean or "עלות" in text_clean:
             send_message(
                 sender,
-                "💻 *קורסים דיגיטליים*\n"
-                "למידה מהבית, בקצב שלך, עם גישה לשיעורים 24/7.\n\n"
-                "🔗 להרשמה ופרטים:\n"
-                "https://example.com\n\n"
-                "לשיחה נוספת – *תפריט* 💕"
+                "🚚 משלוחים:\n"
+                "זמן אספקה: 3–7 ימי עסקים\n"
+                "עלות: 35₪ | חינם מעל 299₪\n\n"
+                "*תפריט* לחזרה"
             )
 
-        elif "פרונט" in text_clean:
-            user_states[sender]["stage"] = "menu"
+        elif "מעקב" in text_clean:
+            user_states[sender]["stage"] = "order_tracking"
             send_message(
                 sender,
-                "🏫 *קורסים פרונטליים*\n"
-                "לימוד מעשי עם ליווי אישי בקבוצות קטנות.\n\n"
-                "לפרטים – שלחי:\n"
-                "שם מלא + טלפון 📞\n\n"
-                "או *תפריט* לחזרה"
+                "📦 מעקב אחרי הזמנה\n"
+                "אנא שלחי מספר הזמנה או פרטים מזהים 💕\n\n"
+                "*תפריט* לחזרה"
             )
 
         else:
-            send_message(
-                sender,
-                "אנא בחרי:\n"
-                "💻 קורסים דיגיטליים\n"
-                "🏫 קורסים פרונטליים\n"
-                "או *תפריט*"
-            )
+            send_message(sender, "אנא בחרי אחת מהאפשרויות 👆")
+
+    # ===== מעקב הזמנה =====
+    elif stage == "order_tracking":
+
+        send_message(
+            ADMIN_NUMBER,
+            f"📦 פנייה – מעקב הזמנה\n"
+            f"📞 {sender}\n"
+            f"📝 {text}"
+        )
+
+        send_message(
+            sender,
+            "קיבלנו 💕 נבדוק ונחזור אלייך בהקדם.\n\n*תפריט*"
+        )
+
+        user_states[sender]["stage"] = "menu"
+
+    # ===== הזמנה פגומה =====
+    elif stage == "damaged_order":
+
+        msg = (
+            "💔 פנייה – הזמנה פגומה\n"
+            f"📞 {sender}\n"
+            f"📝 {text}"
+        )
+
+        if media_link:
+            msg += f"\n📷 תמונה:\n{media_link}"
+
+        send_message(ADMIN_NUMBER, msg)
+
+        send_message(
+            sender,
+            "תודה ששלחת 💛 נחזור אלייך בהקדם.\n\n*תפריט*"
+        )
+
+        user_states[sender]["stage"] = "menu"
+
+    # ===== אחריות =====
+    elif stage == "warranty":
+
+        send_message(
+            ADMIN_NUMBER,
+            f"🛠️ פנייה – אחריות\n"
+            f"📞 {sender}\n"
+            f"📝 {text}"
+        )
+
+        send_message(
+            sender,
+            "קיבלנו 🌸 נחזור אלייך בהקדם.\n\n*תפריט*"
+        )
+
+        user_states[sender]["stage"] = "menu"
 
 # ===================
 # WEBHOOK
@@ -190,8 +236,7 @@ def handle_message(sender, text):
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json(silent=True)
-    print(CYELLOW + "\n========== WEBHOOK ==========" + CEND)
-    print(CYELLOW + f"[RAW DATA] {data}" + CEND)
+    print(CYELLOW + f"[WEBHOOK] {data}" + CEND)
 
     if not data or "data" not in data:
         return jsonify({"status": "error"}), 400
@@ -201,14 +246,17 @@ def webhook():
     text = d.get("body", "")
     from_me = d.get("fromMe", False)
 
-    sender_digits = extract_numbers(raw_sender)
-    bot_digits = extract_numbers(BOT_NUMBER)
+    media_link = ""
+    if d.get("media"):
+        media_link = d["media"].get("link", "")
 
-    if from_me or sender_digits == bot_digits:
-        print(CRED + "[IGNORED] הודעה של הבוט עצמו" + CEND)
+    sender = extract_numbers(raw_sender)
+    bot = extract_numbers(BOT_NUMBER)
+
+    if from_me or sender == bot:
         return jsonify({"ignored": True}), 200
 
-    handle_message(sender_digits, text)
+    handle_message(sender, text, media_link)
     return jsonify({"status": "ok"}), 200
 
 # ===================
@@ -221,4 +269,3 @@ def home():
 if __name__ == "__main__":
     print(CGREEN + ">> הבוט פועל ומחכה להודעות..." + CEND)
     app.run(host="0.0.0.0", port=5000)
-
