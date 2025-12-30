@@ -14,13 +14,11 @@ ULTRAMSG_TOKEN = "3y3jgb9grlw0aa6a"
 
 ADMIN_EMAIL = "chmmen770@gmail.com"
 
-# ===== EMAIL CONFIG =====
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-EMAIL_SENDER = "chmmen770@gmail.com"          # ⚠️ לשים מייל שולח
-EMAIL_PASSWORD = "cjmj xsgk aicv gxwm"       # ⚠️ סיסמת אפליקציה
+EMAIL_SENDER = "chmmen770@gmail.com"
+EMAIL_PASSWORD = "cjmj xsgk aicv gxwm"
 
-# ================= STATES =================
 user_states = {}
 
 # ================= UTILS =================
@@ -57,11 +55,8 @@ def send_main_menu(sender):
         sender,
         "היי אהובה, וברוכה הבאה ל־Beauty Studio 💅\n"
         "איך אוכל לעזור? 🌸\n\n"
-        "1️⃣ 🕒 שעות פתיחה\n"
-        "2️⃣ 🎓 קורסים והשתלמויות\n"
-        "3️⃣ 📦 הזמנות ומשלוחים\n"
-        "4️⃣ 💔 קיבלתי הזמנה פגומה\n"
-        "5️⃣ 🛠️ אחריות ותיקונים\n\n"
+        "1️⃣ 📦 הזמנות ומשלוחים\n"
+        "2️⃣ 🛠️ אחריות / תיקונים / מוצר פגום\n\n"
         "כתבי מספר או *תפריט* 💕"
     )
 
@@ -75,7 +70,7 @@ def handle_message(sender, text, media_link=""):
         return
 
     if text_clean == "תפריט":
-        user_states[sender]["stage"] = "menu"
+        user_states[sender] = {"stage": "menu"}
         send_main_menu(sender)
         return
 
@@ -84,30 +79,7 @@ def handle_message(sender, text, media_link=""):
     # ===== MENU =====
     if stage == "menu":
 
-        # ✅ שעות פתיחה
-        if text_clean in ["1", "שעות פתיחה"]:
-            send_message(
-                sender,
-                "🕒 שעות פתיחה:\n"
-                "א׳–ה׳ 09:00–18:00\n"
-                "ו׳ 09:00–13:00\n\n"
-                "☎️ 050-0000000\n\n"
-                "*תפריט* לחזרה 💕"
-            )
-
-        # ✅ קורסים
-        elif text_clean in ["2", "קורסים"]:
-            user_states[sender]["stage"] = "courses"
-            send_message(
-                sender,
-                "איזה סוג קורס מעניין אותך?\n"
-                "💻 קורסים דיגיטליים\n"
-                "🏫 קורסים פרונטליים\n\n"
-                "*תפריט* לחזרה"
-            )
-
-        # ✅ הזמנות ומשלוחים
-        elif text_clean in ["3", "הזמנות", "משלוחים", "הזמנות ומשלוחים"]:
+        if text_clean in ["1", "הזמנות", "משלוחים", "הזמנות ומשלוחים"]:
             user_states[sender]["stage"] = "orders_menu"
             send_message(
                 sender,
@@ -118,86 +90,23 @@ def handle_message(sender, text, media_link=""):
                 "*תפריט* לחזרה"
             )
 
-        elif text_clean in ["4", "פגומה"]:
-            user_states[sender]["stage"] = "damaged"
-            send_message(
-                sender,
-                "מצטערות לשמוע שזה קרה 🥺\n"
-                "שלחי:\n"
-                "• שם מלא\n"
-                "• מספר הזמנה\n"
-                "• תיאור\n"
-                "• תמונה (אם יש)\n\n"
-                "*תפריט*"
-            )
-
-        elif text_clean in ["5", "אחריות"]:
+        elif text_clean in ["2", "אחריות", "תיקונים", "פגום", "פגומה"]:
             user_states[sender]["stage"] = "warranty"
             send_message(
                 sender,
-                "אנא שלחי:\n"
-                "• מוצר\n"
-                "• מועד רכישה\n"
-                "• מה הבעיה\n\n"
-                "*תפריט*"
+                "כדי שנוכל לטפל בפנייה שלך בצורה הטובה ביותר 🌸\n"
+                "אנא שלחי:\n\n"
+                "• שם מלא\n"
+                "• מספר הזמנה (אם יש)\n"
+                "• על איזה מוצר מדובר\n"
+                "• תיאור הבעיה\n"
+                "• תמונה (אם יש)\n\n"
+                "בסיום נשלח אלייך סיכום 💛\n"
+                "*תפריט* לחזרה"
             )
 
         else:
             send_main_menu(sender)
-
-    # ===== COURSES =====
-    elif stage == "courses":
-
-        if "דיגיטל" in text_clean:
-            send_message(
-                sender,
-                "💻 קורסים דיגיטליים\n"
-                "למידה מהבית, גישה 24/7.\n"
-                "לפרטים:\nhttps://example.com\n\n"
-                "*תפריט*"
-            )
-
-        elif "פרונט" in text_clean:
-            user_states[sender]["stage"] = "waiting_course_lead"
-            send_message(
-                sender,
-                "🏫 קורסים פרונטליים\n"
-                "ליווי אישי ותרגול מעשי.\n"
-                "שלחי שם + טלפון ונחזור אלייך 💕\n\n"
-                "*תפריט*"
-            )
-
-        else:
-            send_message(sender, "אנא בחרי דיגיטליים או פרונטליים 💅")
-
-    # ===== WAITING COURSE LEAD – שם + טלפון פרונטלי =====
-    elif stage == "waiting_course_lead":
-        summary = f"📚 ליד קורס פרונטלי חדש:\n📞 מ-{sender}\n📝 פרטים:\n{text}"
-        send_message(ADMIN_NUMBER, summary)
-        send_email("קורס פרונטלי חדש", summary)
-        user_states[sender]["stage"] = "menu"
-        send_message(
-            sender,
-            "קיבלנו 🌸\nנחזור אלייך בהקדם.\n\n*תפריט*"
-        )
-
-    # ===== DAMAGED =====
-    elif stage == "damaged":
-        summary = f"💔 הזמנה פגומה\nטלפון: {sender}\nתוכן:\n{text}"
-        if media_link:
-            summary += f"\nתמונה:\n{media_link}"
-        send_message(ADMIN_NUMBER, summary)
-        send_email("הזמנה פגומה", summary)
-        send_message(sender, "קיבלנו 🌸\nנחזור אלייך בהקדם.\n\n*תפריט*")
-        user_states[sender]["stage"] = "menu"
-
-    # ===== WARRANTY =====
-    elif stage == "warranty":
-        summary = f"🛠️ אחריות / תיקון\nטלפון: {sender}\nתוכן:\n{text}"
-        send_message(ADMIN_NUMBER, summary)
-        send_email("אחריות / תיקונים", summary)
-        send_message(sender, "קיבלנו 🌸\nנחזור אלייך בהקדם.\n\n*תפריט*")
-        user_states[sender]["stage"] = "menu"
 
     # ===== ORDERS MENU =====
     elif stage == "orders_menu":
@@ -209,6 +118,7 @@ def handle_message(sender, text, media_link=""):
                 "עלות משלוח: 35₪\n\n"
                 "*תפריט*"
             )
+
         elif "מעקב" in text_clean:
             send_message(
                 sender,
@@ -216,6 +126,7 @@ def handle_message(sender, text, media_link=""):
                 "שלחי מספר הזמנה או שם מלא\n\n"
                 "*תפריט*"
             )
+
         else:
             send_message(
                 sender,
@@ -224,6 +135,35 @@ def handle_message(sender, text, media_link=""):
                 "📦 מעקב אחרי הזמנה\n\n"
                 "*תפריט*"
             )
+
+    # ===== WARRANTY / REPAIR =====
+    elif stage == "warranty":
+
+        summary = (
+            "🛠️ פנייה חדשה – אחריות / תיקון / מוצר פגום\n\n"
+            f"📞 טלפון: {sender}\n\n"
+            f"📝 פרטי הלקוחה:\n{text}"
+        )
+
+        if media_link:
+            summary += f"\n\n📸 תמונה:\n{media_link}"
+
+        send_message(ADMIN_NUMBER, summary)
+        send_email("פנייה חדשה – אחריות / תיקון", summary)
+
+        # סיכום ללקוחה
+        send_message(
+            sender,
+            "💛 סיכום הבקשה שלך:\n\n"
+            "סוג פנייה: אחריות / תיקון / מוצר פגום\n"
+            f"טלפון: {sender}\n"
+            f"פרטים שנשלחו:\n{text}\n\n"
+            "הפנייה נקלטה בהצלחה 🌸\n"
+            "נחזור אלייך בהקדם 💅\n\n"
+            "*תפריט*"
+        )
+
+        user_states[sender] = {"stage": "menu"}
 
 # ================= WEBHOOK =================
 @app.route("/webhook", methods=["POST"])
@@ -239,7 +179,6 @@ def webhook():
     text = d.get("body", "")
     from_me = d.get("fromMe", False)
 
-    # טיפול נכון במדיה
     media = d.get("media", None)
     media_link = ""
     if isinstance(media, dict):
@@ -257,3 +196,4 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
