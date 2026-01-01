@@ -53,11 +53,11 @@ def send_email(subject, body):
 def send_main_menu(sender):
     send_message(
         sender,
-        "היי אהובה, וברוכה הבאה ל־Beauty Studio 💅\n"
-        "איך אוכל לעזור? 🌸\n\n"
-        "1️⃣ 📦 הזמנות ומשלוחים\n"
-        "2️⃣ 🛠️ אחריות / תיקונים / מוצר פגום\n\n"
-        "כתבי מספר או *תפריט* 💕"
+        "Bonjour et bienvenue chez Beauty Studio 💅\n"
+        "Comment puis-je vous aider ? 🌸\n\n"
+        "1️⃣ 📦 Commandes et livraisons\n"
+        "2️⃣ 🛠️ Garantie / réparation / produit défectueux\n\n"
+        "Écrivez un numéro ou *menu* 💕"
     )
 
 # ================= LOGIC =================
@@ -69,7 +69,7 @@ def handle_message(sender, text, media_link=""):
         send_main_menu(sender)
         return
 
-    if text_clean == "תפריט":
+    if text_clean == "menu":
         user_states[sender] = {"stage": "menu"}
         send_main_menu(sender)
         return
@@ -79,30 +79,30 @@ def handle_message(sender, text, media_link=""):
     # ===== MENU =====
     if stage == "menu":
 
-        if text_clean in ["1", "הזמנות", "משלוחים", "הזמנות ומשלוחים"]:
+        if text_clean in ["1", "commandes", "livraisons", "commandes et livraisons"]:
             user_states[sender]["stage"] = "orders_menu"
             send_message(
                 sender,
-                "📦 הזמנות ומשלוחים\n"
-                "על מה תרצי לשאול?\n"
-                "🚚 זמני משלוח ועלויות\n"
-                "📦 מעקב אחרי הזמנה\n\n"
-                "*תפריט* לחזרה"
+                "📦 Commandes et livraisons\n"
+                "Que souhaitez-vous savoir ?\n"
+                "🚚 Délais et frais de livraison\n"
+                "📦 Suivi de commande\n\n"
+                "*menu* pour revenir"
             )
 
-        elif text_clean in ["2", "אחריות", "תיקונים", "פגום", "פגומה"]:
+        elif text_clean in ["2", "garantie", "réparation", "défectueux", "défectueuse"]:
             user_states[sender]["stage"] = "warranty"
             send_message(
                 sender,
-                "כדי שנוכל לטפל בפנייה שלך בצורה הטובה ביותר 🌸\n"
-                "אנא שלחי:\n\n"
-                "• שם מלא\n"
-                "• מספר הזמנה (אם יש)\n"
-                "• על איזה מוצר מדובר\n"
-                "• תיאור הבעיה\n"
-                "• תמונה (אם יש)\n\n"
-                "בסיום נשלח אלייך סיכום 💛\n"
-                "*תפריט* לחזרה"
+                "Afin de traiter votre demande au mieux 🌸\n"
+                "Merci d’envoyer :\n\n"
+                "• Nom complet\n"
+                "• Numéro de commande (si disponible)\n"
+                "• Produit concerné\n"
+                "• Description du problème\n"
+                "• Photo (si disponible)\n\n"
+                "Un récapitulatif vous sera envoyé 💛\n"
+                "*menu* pour revenir"
             )
 
         else:
@@ -110,57 +110,57 @@ def handle_message(sender, text, media_link=""):
 
     # ===== ORDERS MENU =====
     elif stage == "orders_menu":
-        if "זמני" in text_clean or "משלוח" in text_clean:
+        if "délai" in text_clean or "livraison" in text_clean:
             send_message(
                 sender,
-                "🚚 זמני משלוח ועלויות:\n"
-                "זמן אספקה: 3–5 ימי עסקים\n"
-                "עלות משלוח: 35₪\n\n"
-                "*תפריט*"
+                "🚚 Délais et frais de livraison :\n"
+                "Délai de livraison : 3 à 5 jours ouvrables\n"
+                "Frais de livraison : 35₪\n\n"
+                "*menu*"
             )
 
-        elif "מעקב" in text_clean:
+        elif "suivi" in text_clean:
             send_message(
                 sender,
-                "📦 מעקב אחרי הזמנה\n"
-                "שלחי מספר הזמנה או שם מלא\n\n"
-                "*תפריט*"
+                "📦 Suivi de commande\n"
+                "Merci d’envoyer votre numéro de commande ou votre nom complet\n\n"
+                "*menu*"
             )
 
         else:
             send_message(
                 sender,
-                "אנא בחרי:\n"
-                "🚚 זמני משלוח ועלויות\n"
-                "📦 מעקב אחרי הזמנה\n\n"
-                "*תפריט*"
+                "Veuillez choisir :\n"
+                "🚚 Délais et frais de livraison\n"
+                "📦 Suivi de commande\n\n"
+                "*menu*"
             )
 
     # ===== WARRANTY / REPAIR =====
     elif stage == "warranty":
 
         summary = (
-            "🛠️ פנייה חדשה – אחריות / תיקון / מוצר פגום\n\n"
-            f"📞 טלפון: {sender}\n\n"
-            f"📝 פרטי הלקוחה:\n{text}"
+            "🛠️ Nouvelle demande – Garantie / réparation / produit défectueux\n\n"
+            f"📞 Téléphone : {sender}\n\n"
+            f"📝 Détails de la cliente :\n{text}"
         )
 
         if media_link:
-            summary += f"\n\n📸 תמונה:\n{media_link}"
+            summary += f"\n\n📸 Photo :\n{media_link}"
 
         send_message(ADMIN_NUMBER, summary)
-        send_email("פנייה חדשה – אחריות / תיקון", summary)
+        send_email("Nouvelle demande – Garantie / réparation", summary)
 
-        # סיכום ללקוחה
+        # Récapitulatif client
         send_message(
             sender,
-            "💛 סיכום הבקשה שלך:\n\n"
-            "סוג פנייה: אחריות / תיקון / מוצר פגום\n"
-            f"טלפון: {sender}\n"
-            f"פרטים שנשלחו:\n{text}\n\n"
-            "הפנייה נקלטה בהצלחה 🌸\n"
-            "נחזור אלייך בהקדם 💅\n\n"
-            "*תפריט*"
+            "💛 Récapitulatif de votre demande :\n\n"
+            "Type de demande : Garantie / réparation / produit défectueux\n"
+            f"Téléphone : {sender}\n"
+            f"Détails envoyés :\n{text}\n\n"
+            "Votre demande a bien été reçue 🌸\n"
+            "Nous vous recontacterons très bientôt 💅\n\n"
+            "*menu*"
         )
 
         user_states[sender] = {"stage": "menu"}
@@ -196,4 +196,3 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
