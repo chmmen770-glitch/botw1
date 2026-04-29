@@ -166,7 +166,41 @@ def handle_message(sender, text, media_link=""):
         user_states[sender] = {"stage": "menu"}
 
 # ================= WEBHOOK =================
-@app.route("/webhook", methods=["POST"])
+@app.route("/webhook", methods=["GET", "POST"])
+def webhook():
+
+    # ===== אימות (GET) =====
+    if request.method == "GET":
+        token_sent = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
+
+        if token_sent == "mytoken123":
+            return challenge or "OK", 200
+        else:
+            return "Verification failed", 403
+
+    # ===== הודעות רגילות (POST) =====
+    data = request.get_json(silent=True)
+
+    if not data or "data" not in data:
+        return jsonify({"status": "error"}), 400
+
+    d = data["data"]
+
+    sender = extract_numbers(d.get("from", ""))
+    text = d.get("body", "")
+    from_me = d.get("fromMe", False)
+
+    media = d.get("media", None)
+    media_link = ""
+    if isinstance(media, dict):
+        media_link = media.get("link", "")
+
+    if from_me:
+        return jsonify({"ignored": True}), 200
+
+    handle_message(sender, text, media_link)
+    return jsonify({"status": "ok"}), 200
 def webhook():
     data = request.get_json(silent=True)
 
